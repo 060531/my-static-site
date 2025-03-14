@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>กราฟจาก Google Sheets</title>
+  <!-- โหลด Tabletop.js สำหรับดึงข้อมูลจาก Google Sheets -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
+  <!-- โหลด Google Charts -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #chart_div {
+      width: 100%;
+      max-width: 1200px;
+      height: 600px;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>กราฟแสดงข้อมูลจาก Google Sheets</h1>
+  <div id="chart_div"></div>
+
+  <script>
+    // โหลด Google Charts และตั้งค่าภาษา (ถ้าต้องการเป็นไทย)
+    google.charts.load('current', { packages: ['corechart'], language: 'th' });
+    google.charts.setOnLoadCallback(init);
+
+    // ฟังก์ชันเริ่มต้น: เรียก Tabletop ดึงข้อมูลจาก Google Sheets
+    function init() {
+      // เปลี่ยน URL นี้เป็น URL ที่ได้จาก Publish to the web ของ Google Sheets ของคุณ
+      var publicSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_YourPublishedSpreadsheetURL/pubhtml';
+
+      Tabletop.init({
+        key: publicSpreadsheetUrl,
+        callback: function(data, tabletop) {
+          // สมมติว่าชีตมีคอลัมน์:
+          // date : วันที่ เช่น "14/03/2568" หรือ "14-มี.ค.-2568"
+          // time : เวลาที่ต้องการ เช่น "08:00", "10:00", "12:00", ...
+          // value: ค่าที่จะนำมาวาดกราฟ (เช่น อุณหภูมิ)
+          // คุณอาจต้องปรับชื่อคอลัมน์ให้ตรงกับชีตของคุณ (Tabletop.js จะทำให้ทุกคอลัมน์เป็น property ของแต่ละ row)
+          var chartData = [];
+          chartData.push(['DateTime', 'Value']); // Header สำหรับ Google Charts
+
+          data.forEach(function(row) {
+            // ผสมวันที่และเวลาเข้าด้วยกัน
+            // หากข้อมูลเป็นแบบ พ.ศ. ให้แปลงเป็น ค.ศ. (ลบ 543) ด้วยฟังก์ชันแปลงเอง
+            // ตัวอย่างนี้สมมุติว่า row.date เป็น "14/03/2568" และ row.time เป็น "08:00"
+            var dtStr = row.date + " " + row.time; 
+            // แปลงเป็น Date object (ถ้าฟอร์แมตตรงกัน)
+            // หากฟอร์แมตไม่ตรง อาจต้องปรับด้วยการแยกส่วน แล้วใช้ new Date(year, month, day, hour, minute)
+            var dt = parseDateTime(dtStr);
+            var value = parseFloat(row.value);
+            if (dt && !isNaN(value)) {
+              chartData.push([dt, value]);
+            }
+          });
+
+          console.log("chartData:", chartData);
+          drawChart(chartData);
+        },
+        simpleSheet: true
+      });
+    }
+
+    // ฟังก์ชันแปลงวันที่+เวลาเป็น Date object
+    // ปรับแก้ให้ตรงกับฟอร์แมตในชีตของคุณ
+    function parseDateTime(dtStr) {
+      // ตัวอย่าง dtStr: "14/03/2568 08:00"
+      // แยกวันที่และเวลา
+      var parts = dtStr.split(" ");
+      if (parts.length < 2) return null;
+      var datePart = parts[0]; // "14/03/2568"
+      var timePart = parts[1]; // "08:00"
+
+      // แยกวัน เดือน ปี (สมมุติใช้ / เป็นตัวแบ่ง)
+      var dateParts = datePart.split("/");
+      if (dateParts.length < 3) return null;
+      var day = parseInt(dateParts[0], 10);
+      var month = parseInt(dateParts[1], 10) - 1; // JavaScript เดือนเริ่มจาก 0
+      var year = parseInt(dateParts[2], 10);
+      // หากปีเป็น พ.ศ. (มากกว่า 2400) ให้ลบ 543
+      if (year > 2400) {
+        year -= 543;
+      }
+
+      // แยกเวลา
+      var timeParts = timePart.split(":");
+      if (timeParts.length < 2) return null;
+      var hour = parseInt(timeParts[0], 10);
+      var minute = parseInt(timeParts[1], 10);
+
+      return new Date(year, month, day, hour, minute);
+    }
+
+    // ฟังก์ชันวาดกราฟด้วย Google Charts
+    function drawChart(chartData) {
+      var data = google.visualization.arrayToDataTable(chartData);
+
+      var options = {
+        title: 'กราฟแสดงวันที่และเวลา',
+        hAxis: {
+          title: 'วันที่ + เวลา',
+          format: 'd MMM yyyy HH:mm',
+          gridlines: { count: -1 }
+        },
+        vAxis: {
+          title: 'ค่า (Value)',
+          viewWindow: { min: 0 }
+        },
+        legend: { position: 'bottom' },
+        pointSize: 5,
+        curveType: 'function'
+      };
+
+      var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+      chart.draw(data, options);
+    }
+  </script>
+</body>
+</html>
