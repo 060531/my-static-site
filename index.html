@@ -36,27 +36,27 @@
 
   <script>
     // URL สำหรับดึงข้อมูล CSV จากแท็บ "มีนาคม-2568"
-    // โปรดตรวจสอบว่าค่า gid ถูกต้องตามแท็บที่คุณต้องการ
+    // (ตรวจสอบให้แน่ใจว่า gid=391054233 เป็นค่าแท็บ "มีนาคม-2568" ของคุณ)
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRIWunTNFIEfyJWdWIkFRlCsVKRbS6P2CnU9moMpfppyjLJneZC8SlEGXnxBOXbdU32kOJclLcOakoo/pub?gid=391054233&single=true&output=csv";
     
     // ดึงข้อมูล CSV ด้วย fetch
     fetch(csvUrl)
       .then(response => response.text())
       .then(csvText => {
-        // แปลง CSV เป็น JSON โดยใช้ PapaParse (header: true)
+        // แปลง CSV เป็น JSON โดยใช้ PapaParse (ใช้ header: true)
         const parsedData = Papa.parse(csvText, { header: true });
         console.log("Parsed Data:", parsedData.data);
         
         // สร้างข้อมูลสำหรับ Google Charts
-        // สมมติว่าชีตมีคอลัมน์: date, time, temperature
+        // ในที่นี้สมมุติว่าชีตมีคอลัมน์ "Time" กับ "อุณหภูมิ (องศา)"
         let chartData = [["DateTime", "Temperature"]];
         parsedData.data.forEach(row => {
           // ตรวจสอบว่ามีข้อมูลในคอลัมน์ที่ต้องการ
-          if (row.date && row.time && row.temperature) {
-            let dtStr = row.date + " " + row.time;
-            // แปลงเป็น Date object (ปรับแก้การ parse ตามฟอร์แมตที่แท้จริงของข้อมูลในชีต)
-            let dt = new Date(dtStr);
-            let temp = parseFloat(row.temperature);
+          if (row.Time && row["อุณหภูมิ (องศา)"]) {
+            let dtStr = row.Time;  // สมมุติว่า "Time" มีทั้งวันที่และเวลา เช่น "8/9/2567 21:20:45"
+            // ถ้าในชีตปีเป็น พ.ศ. จำเป็นต้องแปลงเป็น ค.ศ.
+            let dt = parseBuddhistDate(dtStr);
+            let temp = parseFloat(row["อุณหภูมิ (องศา)"]);
             if (!isNaN(dt) && !isNaN(temp)) {
               chartData.push([dt, temp]);
             }
@@ -67,28 +67,41 @@
       })
       .catch(error => console.error("Error fetching CSV:", error));
     
+    // ฟังก์ชันแปลงวันที่จาก พ.ศ. (Buddhist Era) เป็น ค.ศ. (Gregorian)
+    function parseBuddhistDate(dtStr) {
+      // สมมุติรูปแบบ "d/M/BBBB HH:mm:ss" หรือ "d/M/BBBB HH:mm"
+      // แยกวันที่และเวลาออกจาก dtStr
+      const parts = dtStr.split(" ");
+      if (parts.length < 2) return new Date(dtStr);
+      const datePart = parts[0];
+      const timePart = parts[1];
+      const dateComponents = datePart.split("/");
+      if (dateComponents.length < 3) return new Date(dtStr);
+      let day = parseInt(dateComponents[0], 10);
+      let month = parseInt(dateComponents[1], 10) - 1; // JavaScript เดือนเริ่มจาก 0
+      let buddhistYear = parseInt(dateComponents[2], 10);
+      let gregorianYear = buddhistYear - 543;
+      // สร้างวันที่ในรูปแบบ ISO (YYYY-MM-DD HH:mm:ss)
+      const newDateStr = `${gregorianYear}-${(month+1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} ${timePart}`;
+      return new Date(newDateStr);
+    }
+    
     // โหลด Google Charts
     google.charts.load('current', { packages: ['corechart'], language: 'th' });
     google.charts.setOnLoadCallback(() => {
-      // รอให้ข้อมูล CSV ถูกโหลดแล้วจะวาดกราฟใน drawChart()
+      // กราฟจะวาดหลังจากข้อมูล CSV ถูกโหลดแล้วใน drawChart()
     });
     
     // ฟังก์ชันวาดกราฟด้วย Google Charts
     function drawChart(chartData) {
       var data = google.visualization.arrayToDataTable(chartData);
       var options = {
-        title: 'กราฟแสดงข้อมูล (มีนาคม-2568)',
-        hAxis: {
-          title: 'วันที่ + เวลา',
-          format: 'd MMM yyyy HH:mm'
-        },
-        vAxis: {
-          title: 'อุณหภูมิ (°C)',
-          viewWindow: { min: 0 }
-        },
-        legend: { position: 'bottom' },
-        pointSize: 5,
-        curveType: 'function'
+         title: 'กราฟแสดงข้อมูล (มีนาคม-2568)',
+         hAxis: { title: 'วันที่ + เวลา', format: 'd MMM yyyy HH:mm' },
+         vAxis: { title: 'อุณหภูมิ (°C)', viewWindow: { min: 0 } },
+         legend: { position: 'bottom' },
+         pointSize: 5,
+         curveType: 'function'
       };
       var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
       chart.draw(data, options);
