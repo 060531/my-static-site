@@ -3,14 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <title>กราฟจาก Google Sheets (มีนาคม-2568)</title>
+  <!-- ไฟล์ favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  
   <!-- โหลด PapaParse สำหรับแปลง CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <!-- โหลด Google Charts -->
   <script src="https://www.gstatic.com/charts/loader.js"></script>
   <style>
-    body { font-family: 'Noto Sans Thai', sans-serif; padding: 20px; background-color: #f0f0f0; }
-    h1 { text-align: center; margin-bottom: 20px; }
-    #chart_div { width: 100%; max-width: 1200px; height: 600px; margin: 0 auto; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #chart_div {
+      width: 100%;
+      max-width: 1200px;
+      height: 600px;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
@@ -18,25 +35,27 @@
   <div id="chart_div"></div>
 
   <script>
-    // URL สำหรับดึง CSV จากแท็บ "มีนาคม-2568"
+    // URL สำหรับดึงข้อมูล CSV จากแท็บ "มีนาคม-2568"
+    // โปรดตรวจสอบว่าค่า gid ถูกต้องตามแท็บที่คุณต้องการ
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRIWunTNFIEfyJWdWIkFRlCsVKRbS6P2CnU9moMpfppyjLJneZC8SlEGXnxBOXbdU32kOJclLcOakoo/pub?gid=391054233&single=true&output=csv";
     
     // ดึงข้อมูล CSV ด้วย fetch
     fetch(csvUrl)
       .then(response => response.text())
       .then(csvText => {
-        // แปลง CSV เป็น JSON ด้วย PapaParse
+        // แปลง CSV เป็น JSON โดยใช้ PapaParse (header: true)
         const parsedData = Papa.parse(csvText, { header: true });
         console.log("Parsed Data:", parsedData.data);
-
+        
         // สร้างข้อมูลสำหรับ Google Charts
-        // สมมติว่าในชีตมีคอลัมน์: date, time, temperature
+        // สมมติว่าชีตมีคอลัมน์: date, time, temperature
         let chartData = [["DateTime", "Temperature"]];
         parsedData.data.forEach(row => {
           // ตรวจสอบว่ามีข้อมูลในคอลัมน์ที่ต้องการ
           if (row.date && row.time && row.temperature) {
             let dtStr = row.date + " " + row.time;
-            let dt = new Date(dtStr); // ปรับแก้ parse ตามฟอร์แมตของข้อมูลจริงในชีต
+            // แปลงเป็น Date object (ปรับแก้การ parse ตามฟอร์แมตที่แท้จริงของข้อมูลในชีต)
+            let dt = new Date(dtStr);
             let temp = parseFloat(row.temperature);
             if (!isNaN(dt) && !isNaN(temp)) {
               chartData.push([dt, temp]);
@@ -47,20 +66,26 @@
         drawChart(chartData);
       })
       .catch(error => console.error("Error fetching CSV:", error));
-
+    
     // โหลด Google Charts
     google.charts.load('current', { packages: ['corechart'], language: 'th' });
     google.charts.setOnLoadCallback(() => {
-      // กราฟจะวาดหลังจากข้อมูลถูกโหลด
+      // รอให้ข้อมูล CSV ถูกโหลดแล้วจะวาดกราฟใน drawChart()
     });
-
+    
     // ฟังก์ชันวาดกราฟด้วย Google Charts
     function drawChart(chartData) {
       var data = google.visualization.arrayToDataTable(chartData);
       var options = {
         title: 'กราฟแสดงข้อมูล (มีนาคม-2568)',
-        hAxis: { title: 'วันที่ + เวลา', format: 'd MMM yyyy HH:mm' },
-        vAxis: { title: 'อุณหภูมิ (°C)', viewWindow: { min: 0 } },
+        hAxis: {
+          title: 'วันที่ + เวลา',
+          format: 'd MMM yyyy HH:mm'
+        },
+        vAxis: {
+          title: 'อุณหภูมิ (°C)',
+          viewWindow: { min: 0 }
+        },
         legend: { position: 'bottom' },
         pointSize: 5,
         curveType: 'function'
